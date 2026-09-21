@@ -1,0 +1,14 @@
+[package]
+name = "cell-compose"
+version.workspace = true
+edition.workspace = true
+description = "Explicit WebAssembly component-provider composition for Cell"
+
+[dependencies]
+anyhow.workspace = true
+cell = { version = "0.1.0", path = "../cell" }
+wasmtime.workspace = true
+wac-graph = "0.12"
+
+[dev-dependencies]
+wat = "1.258"

@@ -1,0 +1,13 @@
+[package]
+name = "cell-capability-fs"
+version.workspace = true
+edition.workspace = true
+description = "Rooted filesystem capabilities for the Cell WebAssembly runtime"
+
+[dependencies]
+anyhow.workspace = true
+cap-std = "4"
+cap-fs-ext = "4"
+sha2 = "0.10"
+cell = { version = "0.1.0", path = "../cell" }
+wasmtime.workspace = true

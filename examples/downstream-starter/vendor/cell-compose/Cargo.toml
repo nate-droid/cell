@@ -1,0 +1,2 @@
+"package" = { "name" = "cell-compose", "version" = "0.1.0", "edition" = "2024", "description" = "Explicit WebAssembly component-provider composition for Cell" }
+"dependencies" = { "anyhow" = { "version" = "1", "features" = [] }, "cell" = { "version" = "0.1.0", "path" = "../cell" }, "wasmtime" = { "version" = "47.0.3", "features" = ["component-model"] }, "wac-graph" = "0.12" }

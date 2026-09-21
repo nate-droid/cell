@@ -1,0 +1,10 @@
+[package]
+name = "hello-host"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+wit-component = "0.241.2"
+cell = { path = "../../crates/cell" }
+cell-capability-log = { path = "../../crates/capability-log" }

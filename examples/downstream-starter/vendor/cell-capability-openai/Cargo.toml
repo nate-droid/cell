@@ -1,0 +1,2 @@
+"package" = { "name" = "cell-capability-openai", "version" = "0.1.0", "edition" = "2024", "description" = "Host-controlled OpenAI-compatible chat capability for Cell" }
+"dependencies" = { "anyhow" = { "version" = "1", "features" = [] }, "cell" = { "version" = "0.1.0", "path" = "../cell" }, "reqwest" = { "version" = "0.12", "default-features" = false, "features" = ["blocking", "json", "rustls-tls"] }, "serde" = { "version" = "1", "features" = ["derive"] }, "wasmtime" = { "version" = "47.0.3", "features" = ["component-model"] } }

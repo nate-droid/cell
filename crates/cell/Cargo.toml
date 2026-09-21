@@ -1,0 +1,15 @@
+[package]
+name = "cell"
+version.workspace = true
+edition.workspace = true
+description = "Capability-neutral host runtime for WebAssembly components"
+
+[dependencies]
+anyhow.workspace = true
+sha2 = "0.10"
+wasmtime.workspace = true
+
+[dev-dependencies]
+cell-capability-fs = { version = "0.1.0", path = "../capability-fs" }
+wit-component = "0.241.2"
+wit-parser = "0.241.2"

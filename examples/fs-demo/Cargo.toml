@@ -1,0 +1,11 @@
+[package]
+name = "fs-demo"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cell-guest = { path = "../../crates/guest" }
+wit-bindgen.workspace = true

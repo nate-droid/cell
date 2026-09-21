@@ -1,0 +1,5 @@
+/vendor/
+/target/
+/guest/wit/deps/
+/Cargo.lock
+/smoke-work/

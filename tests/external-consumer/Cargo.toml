@@ -1,0 +1,16 @@
+[package]
+name = "cell-external-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: never inherit Cell's workspace configuration.
+[workspace]
+
+[dependencies]
+cell = "0.1.0"
+cell-capability-fs = "0.1.0"
+cell-capability-log = "0.1.0"
+cell-capability-openai = "0.1.0"
+cell-compose = "0.1.0"
+cell-guest = "0.1.0"

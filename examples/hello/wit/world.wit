@@ -1,0 +1,7 @@
+package cell-example:hello;
+
+world hello {
+    import cell:log/log@0.1.0;
+
+    export run: func();
+}

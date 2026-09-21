@@ -1,0 +1,12 @@
+[package]
+name = "downstream-host"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "=1.0.104"
+wit-component = "=0.241.2"
+cell = { path = "../vendor/cell", version = "=0.1.0" }
+cell-capability-log = { path = "../vendor/cell-capability-log", version = "=0.1.0" }
+cell-capability-fs = { path = "../vendor/cell-capability-fs", version = "=0.1.0" }

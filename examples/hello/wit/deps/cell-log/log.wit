@@ -1,0 +1,9 @@
+package cell:log@0.1.0;
+
+interface log {
+    log: func(message: string);
+}
+
+world host {
+    import log;
+}

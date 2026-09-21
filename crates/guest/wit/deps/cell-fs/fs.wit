@@ -1,0 +1,65 @@
+package cell:fs@0.1.0;
+
+interface fs {
+    /// Unknown categories travel as other(string), without changing the ABI.
+    variant error-category {
+        permission-denied,
+        not-found,
+        invalid-path,
+        confinement-violation,
+        invalid-text-encoding,
+        io,
+        other(string),
+    }
+
+    /// Logical path and stable operation name; never host OS error text.
+    record fs-error {
+        category: error-category,
+        path: string,
+        operation: string,
+    }
+
+    variant file-type {
+        file,
+        directory,
+        symlink,
+        other,
+    }
+
+    record directory-entry {
+        name: string,
+        file-type: file-type,
+    }
+
+    /// Entry metadata; the final symlink is not followed.
+    record metadata {
+        file-type: file-type,
+    }
+
+    symlink-metadata: func(path: string) -> result<metadata, fs-error>;
+
+    record revisioned-text {
+        contents: string,
+        revision: string,
+    }
+
+    variant save-outcome {
+        saved(string),
+        conflict(string),
+    }
+
+    read-text: func(path: string) -> result<string, fs-error>;
+    read-text-revision: func(path: string) -> result<revisioned-text, fs-error>;
+    save-text: func(path: string, contents: string, expected-revision: option<string>) -> result<save-outcome, fs-error>;
+    write-text: func(path: string, contents: string) -> result<_, fs-error>;
+    exists: func(path: string) -> bool;
+
+    list-dir: func(path: string) -> result<list<directory-entry>, fs-error>;
+    create-dir: func(path: string) -> result<_, fs-error>;
+    remove-file: func(path: string) -> result<_, fs-error>;
+    remove-dir: func(path: string) -> result<_, fs-error>;
+}
+
+world host {
+    import fs;
+}

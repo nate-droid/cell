@@ -1,0 +1,7 @@
+package cell-example:formatter-app;
+
+world formatter-app {
+    import cell-example:formatter/formatter@0.1.0;
+
+    export run: func(input: string) -> string;
+}

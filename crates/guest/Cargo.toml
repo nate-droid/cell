@@ -1,0 +1,8 @@
+[package]
+name = "cell-guest"
+version.workspace = true
+edition.workspace = true
+description = "Guest filesystem bindings and capability-relative paths for Cell"
+
+[dependencies]
+wit-bindgen.workspace = true

@@ -1,0 +1,2 @@
+"package" = { "name" = "cell-capability-fs", "version" = "0.1.0", "edition" = "2024", "description" = "Rooted filesystem capabilities for the Cell WebAssembly runtime" }
+"dependencies" = { "anyhow" = { "version" = "1", "features" = [] }, "cap-std" = "4", "cap-fs-ext" = "4", "sha2" = "0.10", "cell" = { "version" = "0.1.0", "path" = "../cell" }, "wasmtime" = { "version" = "47.0.3", "features" = ["component-model"] } }

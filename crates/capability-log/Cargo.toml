@@ -1,0 +1,10 @@
+[package]
+name = "cell-capability-log"
+version.workspace = true
+edition.workspace = true
+description = "Opt-in logging capability for the Cell WebAssembly runtime"
+
+[dependencies]
+anyhow.workspace = true
+cell = { version = "0.1.0", path = "../cell" }
+wasmtime.workspace = true

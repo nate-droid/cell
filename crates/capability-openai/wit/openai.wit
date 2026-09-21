@@ -1,0 +1,32 @@
+package cell:openai@0.1.0;
+
+interface chat {
+    record message {
+        role: string,
+        content: string,
+    }
+
+    record chat-request {
+        messages: list<message>,
+        temperature: option<f32>,
+        max-tokens: option<u32>,
+    }
+
+    record usage {
+        prompt-tokens: option<u32>,
+        completion-tokens: option<u32>,
+        total-tokens: option<u32>,
+    }
+
+    record chat-response {
+        content: string,
+        model: string,
+        usage: option<usage>,
+    }
+
+    complete: func(request: chat-request) -> result<chat-response, string>;
+}
+
+world host {
+    import chat;
+}

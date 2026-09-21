@@ -1,0 +1,7 @@
+package cell-example:fs-demo;
+
+world fs-demo {
+    import cell:fs/fs@0.1.0;
+
+    export run: func() -> result<string, string>;
+}

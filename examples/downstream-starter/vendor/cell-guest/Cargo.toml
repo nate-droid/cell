@@ -1,0 +1,2 @@
+"package" = { "name" = "cell-guest", "version" = "0.1.0", "edition" = "2024", "description" = "Guest filesystem bindings and capability-relative paths for Cell" }
+"dependencies" = { "wit-bindgen" = { "version" = "0.48", "features" = [] } }

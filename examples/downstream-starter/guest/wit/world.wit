@@ -1,0 +1,7 @@
+package downstream:starter;
+
+world starter {
+    import cell:log/log@0.1.0;
+    import cell:fs/fs@0.1.0;
+    export run: func() -> result<string, string>;
+}

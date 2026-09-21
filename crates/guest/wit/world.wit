@@ -1,0 +1,5 @@
+package cell:guest-support;
+
+world guest-support {
+    import cell:fs/fs@0.1.0;
+}

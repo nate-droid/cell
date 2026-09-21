@@ -1,0 +1,12 @@
+[package]
+name = "cell-capability-openai"
+version.workspace = true
+edition.workspace = true
+description = "Host-controlled OpenAI-compatible chat capability for Cell"
+
+[dependencies]
+anyhow.workspace = true
+cell = { version = "0.1.0", path = "../cell" }
+reqwest.workspace = true
+serde.workspace = true
+wasmtime.workspace = true

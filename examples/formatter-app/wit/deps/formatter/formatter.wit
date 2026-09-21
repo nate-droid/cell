@@ -1,0 +1,9 @@
+package cell-example:formatter@0.1.0;
+
+interface formatter {
+    format: func(input: string) -> string;
+}
+
+world formatter-provider {
+    export formatter;
+}
