@@ -6,6 +6,8 @@ Downstream guests should use Cell capabilities, not ambient host APIs. For examp
 
 Cell is a library for Rust host applications and WIT-based guests, not a standalone CLI or a WASI replacement. Rust APIs and WIT contracts are experimental. Start with the logging example below, then try the read-only filesystem starter.
 
+I've been using Cell as a runtime for several other experiments that I will soon be linking to once I publish them.
+
 ## Try it
 
 From the repository root, use a current stable Rust toolchain with Cargo, a native linker, and `make`. This checkout was validated with Rust/Cargo 1.97.1 on Apple Silicon macOS; a minimum supported Rust version and cross-platform release matrix are not yet established. Install the guest target:
