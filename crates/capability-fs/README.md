@@ -6,6 +6,13 @@
 - `ReadOnlyFs`: a readable directory grant; mutation methods return access-denied errors.
 - `Workspace`: named directory grants, each independently writable or read-only. Guest paths such as `project/src/main.rs` select a mount; the workspace root lists the mounts.
 
+Native callers can also use `read_text_revision_bounded(path, max_bytes)` and
+`create_text(path, contents)` on all three receivers. Creation returns an opaque
+revision and never replaces an occupied final entry. These additions currently
+fail closed on non-Unix platforms and do not change WIT. See [the F3 audit and
+integration report](F3.md) for exact signatures, bounded buffering, publication
+assumptions, failure/mutation contracts, symlink-policy limits, and examples.
+
 ## Confinement contract
 
 Filesystem operations use **cap-std 4 directory handles retained from construction** (or mount creation), not repeated resolution of the original host pathname. Renaming the root and placing another directory at its former pathname does not retarget the capability. The host-facing `root()` path is descriptive, not the authority used to perform operations.

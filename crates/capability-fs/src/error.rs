@@ -9,6 +9,10 @@ pub enum FsErrorKind {
     InvalidPath,
     ConfinementViolation,
     InvalidTextEncoding,
+    ContentTooLarge,
+    NonRegularFile,
+    AlreadyExists,
+    UnsupportedOperation,
     Io,
     Other(String),
 }
@@ -53,6 +57,10 @@ impl From<FsError> for crate::bindings::cell::fs::fs::FsError {
             FsErrorKind::InvalidPath => Wire::InvalidPath,
             FsErrorKind::ConfinementViolation => Wire::ConfinementViolation,
             FsErrorKind::InvalidTextEncoding => Wire::InvalidTextEncoding,
+            FsErrorKind::ContentTooLarge => Wire::Other("content-too-large".into()),
+            FsErrorKind::NonRegularFile => Wire::Other("non-regular-file".into()),
+            FsErrorKind::AlreadyExists => Wire::Other("already-exists".into()),
+            FsErrorKind::UnsupportedOperation => Wire::Other("unsupported-operation".into()),
             FsErrorKind::Io => Wire::Io,
             FsErrorKind::Other(value) => Wire::Other(value),
         };

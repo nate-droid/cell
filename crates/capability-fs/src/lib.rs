@@ -107,6 +107,16 @@ impl LocalFs {
         write_text_at(&self.root, path.as_ref(), contents.as_ref())
     }
 
+    /// Read a regular file with bounded buffering and a content revision.
+    /// Follows confined symlinks; this is not an immutable snapshot.
+    pub fn read_text_revision_bounded(
+        &self,
+        path: impl AsRef<str>,
+        max_bytes: usize,
+    ) -> Result<RevisionedText, FsError> {
+        read_text_revision_bounded_at(&self.root, path.as_ref(), max_bytes)
+    }
+
     /// Read text and its opaque content token in one read.
     pub fn read_text_revision(&self, path: impl AsRef<str>) -> Result<RevisionedText, FsError> {
         let contents = self.read_text(path)?;
@@ -114,6 +124,29 @@ impl LocalFs {
             revision: revision(contents.as_bytes()),
             contents,
         })
+    }
+
+    /// Exclusively publish complete text at a new entry and return its revision.
+    ///
+    /// Unix only; no fsync/durability guarantee is made. Existing entries,
+    /// including dangling symlinks, are never replaced. The parent must not
+    /// have hostile writers: a writer can replace the named temporary source
+    /// or mutate its inode before publication, invalidating content/revision
+    /// guarantees. A retained parent handle does not prevent these attacks.
+    pub fn create_text(
+        &self,
+        path: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> Result<String, FsError> {
+        let path = path.as_ref();
+        if !self.writable {
+            return Err(FsError::new(
+                FsErrorKind::PermissionDenied,
+                path,
+                "create-text",
+            ));
+        }
+        create_text_at(&self.root, path, contents.as_ref())
     }
 
     /// Replace an existing regular file. See the crate README for platform,
@@ -238,6 +271,23 @@ impl ReadOnlyFs {
 
     pub fn read_text_revision(&self, path: impl AsRef<str>) -> Result<RevisionedText, FsError> {
         self.0.read_text_revision(path)
+    }
+
+    pub fn read_text_revision_bounded(
+        &self,
+        path: impl AsRef<str>,
+        max_bytes: usize,
+    ) -> Result<RevisionedText, FsError> {
+        self.0.read_text_revision_bounded(path, max_bytes)
+    }
+
+    /// Deny creation without touching the filesystem.
+    pub fn create_text(
+        &self,
+        path: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> Result<String, FsError> {
+        self.0.create_text(path, contents)
     }
 
     pub fn save_text(
@@ -378,6 +428,41 @@ impl Workspace {
             revision: revision(contents.as_bytes()),
             contents,
         })
+    }
+
+    /// Create within a writable mount; see `LocalFs::create_text` for guarantees
+    /// and the hostile temporary-namespace limitation.
+    pub fn create_text(
+        &self,
+        path: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> Result<String, FsError> {
+        let path = path.as_ref();
+        (|| {
+            let (mount, relative) = self.resolve_mount(path)?;
+            if !mount.writable {
+                return Err(FsError::new(
+                    FsErrorKind::PermissionDenied,
+                    path,
+                    "create-text",
+                ));
+            }
+            create_text_at(&mount.root, &relative, contents.as_ref())
+        })()
+        .map_err(|e: FsError| e.context(path, "create-text"))
+    }
+
+    pub fn read_text_revision_bounded(
+        &self,
+        path: impl AsRef<str>,
+        max_bytes: usize,
+    ) -> Result<RevisionedText, FsError> {
+        let path = path.as_ref();
+        (|| {
+            let (mount, relative) = self.resolve_mount(path)?;
+            read_text_revision_bounded_at(&mount.root, &relative, max_bytes)
+        })()
+        .map_err(|e: FsError| e.context(path, "read-text-revision-bounded"))
     }
 
     pub fn save_text(
@@ -1037,6 +1122,116 @@ fn read_text_at(root: &Root, path: &str) -> Result<String, FsError> {
         })
 }
 
+fn read_text_revision_bounded_at(
+    root: &Root,
+    path: &str,
+    max_bytes: usize,
+) -> Result<RevisionedText, FsError> {
+    const OP: &str = "read-text-revision-bounded";
+    let relative = clean_relative_path(path).map_err(|e| e.context(path, OP))?;
+    #[cfg(not(unix))]
+    {
+        let _ = (root, relative, max_bytes);
+        Err(FsError::new(FsErrorKind::UnsupportedOperation, path, OP))
+    }
+    #[cfg(unix)]
+    {
+        use cap_std::fs::OpenOptionsExt;
+        let mut options = cap_std::fs::OpenOptions::new();
+        // Avoid blocking on a FIFO substituted between lookup and open.
+        options.read(true).custom_flags(libc::O_NONBLOCK);
+        let mut file = root
+            .dir
+            .open_with(relative, &options)
+            .map_err(|e| io_error(e, path, OP))?;
+        if !file
+            .metadata()
+            .map_err(|e| io_error(e, path, OP))?
+            .is_file()
+        {
+            return Err(FsError::new(FsErrorKind::NonRegularFile, path, OP));
+        }
+        let bytes =
+            read_bounded(&mut file, max_bytes).map_err(|kind| FsError::new(kind, path, OP))?;
+        let token = revision(&bytes);
+        let contents = String::from_utf8(bytes)
+            .map_err(|_| FsError::new(FsErrorKind::InvalidTextEncoding, path, OP))?;
+        Ok(RevisionedText {
+            contents,
+            revision: token,
+        })
+    }
+}
+
+#[cfg(test)]
+mod bounded_reader_tests {
+    use super::*;
+    use std::io::{self, Read};
+
+    #[test]
+    fn growing_source_stops_after_one_extra_byte() {
+        struct Growing(usize);
+        impl Read for Growing {
+            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+                // Deterministically model content that keeps growing: no EOF.
+                buffer.fill(b'x');
+                self.0 += buffer.len();
+                Ok(buffer.len())
+            }
+        }
+        for limit in [0, 1, 8192, 8193, 32768] {
+            let mut source = Growing(0);
+            assert_eq!(
+                read_bounded(&mut source, limit),
+                Err(FsErrorKind::ContentTooLarge)
+            );
+            assert_eq!(source.0, limit + 1);
+        }
+    }
+
+    #[test]
+    fn maximum_limit_does_not_overflow_or_preallocate() {
+        assert_eq!(
+            read_bounded(&mut io::empty(), usize::MAX).unwrap(),
+            Vec::<u8>::new()
+        );
+        struct Failing;
+        impl Read for Failing {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                Err(io::ErrorKind::PermissionDenied.into())
+            }
+        }
+        assert_eq!(
+            read_bounded(&mut Failing, 8),
+            Err(FsErrorKind::PermissionDenied)
+        );
+    }
+}
+
+// Fixed-size reads and exact reservation avoid metadata-sized allocation and
+// read_to_end's speculative growth. Probe one extra byte without storing it.
+fn read_bounded(reader: &mut impl std::io::Read, limit: usize) -> Result<Vec<u8>, FsErrorKind> {
+    let mut bytes = Vec::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        let remaining = limit - bytes.len();
+        let size = remaining.min(buffer.len()).max(1);
+        let n = match reader.read(&mut buffer[..size]) {
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(io_error(e, "", "").kind),
+        };
+        if n == 0 {
+            return Ok(bytes);
+        }
+        if n > remaining {
+            return Err(FsErrorKind::ContentTooLarge);
+        }
+        bytes.try_reserve_exact(n).map_err(|_| FsErrorKind::Io)?;
+        bytes.extend_from_slice(&buffer[..n]);
+    }
+}
+
 fn write_text_at(root: &Root, path: &str, contents: &str) -> Result<(), FsError> {
     root.dir
         .write(
@@ -1049,6 +1244,79 @@ fn write_text_at(root: &Root, path: &str, contents: &str) -> Result<(), FsError>
 fn revision(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("sha256:{:x}", Sha256::digest(bytes))
+}
+
+fn create_text_at(root: &Root, path: &str, contents: &str) -> Result<String, FsError> {
+    let relative = clean_relative_path(path).map_err(|e| e.context(path, "create-text"))?;
+    #[cfg(not(unix))]
+    {
+        let _ = (root, relative, contents);
+        Err(FsError::new(
+            FsErrorKind::UnsupportedOperation,
+            path,
+            "create-text",
+        ))
+    }
+    #[cfg(unix)]
+    {
+        use cap_std::fs::OpenOptionsExt;
+        use std::io::{ErrorKind, Write};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let run = || -> std::io::Result<String> {
+            let name = relative
+                .file_name()
+                .ok_or_else(|| std::io::Error::from(ErrorKind::InvalidInput))?;
+            let parent = root.dir.open_dir(
+                relative
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(Path::new(".")),
+            )?;
+            let token = revision(contents.as_bytes());
+            let mut options = cap_std::fs::OpenOptions::new();
+            options.write(true).create_new(true).mode(0o600);
+            let (temp, mut file) = loop {
+                let temp = format!(
+                    ".cell-create-{}-{}",
+                    std::process::id(),
+                    NEXT.fetch_add(1, Ordering::Relaxed)
+                );
+                // Never use the destination itself as scratch, even if the
+                // caller deliberately selected a generated temporary name.
+                if name == std::ffi::OsStr::new(&temp) {
+                    continue;
+                }
+                match parent.open_with(&temp, &options) {
+                    Ok(file) => break (temp, file),
+                    Err(e) if e.kind() == ErrorKind::AlreadyExists => continue,
+                    Err(e) => return Err(e),
+                }
+            };
+            let result = (|| {
+                file.write_all(contents.as_bytes())?;
+                drop(file);
+                // cap-std 4 uses linkat with empty flags on Unix: the final
+                // destination is neither followed nor replaced. The source
+                // is still a name, not the retained file's identity.
+                parent.hard_link(&temp, &parent, name)?;
+                Ok(token)
+            })();
+            // Publication is the commit point. Cleanup failure must not turn
+            // a successful create into a reported failure (or invite retries).
+            let _ = parent.remove_file(&temp);
+            result
+        };
+        run().map_err(|e| match e.kind() {
+            ErrorKind::AlreadyExists => {
+                FsError::new(FsErrorKind::AlreadyExists, path, "create-text")
+            }
+            ErrorKind::Unsupported => {
+                FsError::new(FsErrorKind::UnsupportedOperation, path, "create-text")
+            }
+            _ => io_error(e, path, "create-text"),
+        })
+    }
 }
 
 fn save_text_at(

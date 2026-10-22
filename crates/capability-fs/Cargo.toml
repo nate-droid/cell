@@ -11,3 +11,7 @@ cap-fs-ext = "4"
 sha2 = "0.10"
 cell = { version = "0.1.0", path = "../cell" }
 wasmtime.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
