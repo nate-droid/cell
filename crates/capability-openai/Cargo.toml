@@ -2,6 +2,7 @@
 name = "cell-capability-openai"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Host-controlled OpenAI-compatible chat capability for Cell"
 
 [dependencies]

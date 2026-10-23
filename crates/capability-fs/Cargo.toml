@@ -2,6 +2,7 @@
 name = "cell-capability-fs"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Rooted filesystem capabilities for the Cell WebAssembly runtime"
 
 [dependencies]

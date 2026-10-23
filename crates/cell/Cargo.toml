@@ -2,6 +2,7 @@
 name = "cell"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Capability-neutral host runtime for WebAssembly components"
 
 [dependencies]

@@ -133,8 +133,8 @@ impl ResourceLimiter for MemoryLimit {
 
 /// Owns the store and controls without changing capability host state T.
 /// Native host functions cannot be forcibly interrupted: deadline/cancellation are
-/// checked before and after execution and at guest epoch safepoints. Wasmtime 47
-/// component calls do not dispatch Store call hooks. Host code must implement its
+/// checked before and after execution and at guest epoch safepoints.
+/// Host code must implement its
 /// own I/O timeouts/cooperative cancellation. Output bounds are checked after
 /// Wasmtime lifts results, so they do not prevent the initial host allocation.
 /// After execution fails inside Wasmtime, this store rejects further execution
@@ -256,7 +256,7 @@ impl<T: 'static> ManagedStore<T> {
             self.policy.output_bytes,
             ExecutionErrorKind::Output,
         );
-        // Wasmtime 47 executes canonical post-return inside Func::call.
+        // Wasmtime executes canonical post-return inside Func::call.
         self.policy.check()?;
         output?;
         Ok(results)
@@ -271,12 +271,18 @@ struct Ticker {
 }
 impl Ticker {
     fn new(engine: Engine) -> Self {
+        Self::with_interval(engine, Duration::from_millis(1))
+    }
+
+    fn with_interval(engine: Engine, interval: Duration) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
         let thread = std::thread::spawn(move || {
             while !flag.load(Ordering::Acquire) {
-                std::thread::sleep(Duration::from_millis(1));
-                engine.increment_epoch();
+                std::thread::park_timeout(interval);
+                if !flag.load(Ordering::Acquire) {
+                    engine.increment_epoch();
+                }
             }
         });
         Self {
@@ -288,7 +294,10 @@ impl Ticker {
 impl Drop for Ticker {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        let _ = self.thread.take().unwrap().join();
+        let thread = self.thread.take().unwrap();
+        // Unpark also retains a wake token if shutdown races with entering park.
+        thread.thread().unpark();
+        let _ = thread.join();
     }
 }
 
@@ -354,6 +363,48 @@ mod tests {
         ))
         .unwrap()
     }
+    #[test]
+    fn ticker_shutdown_wakes_parked_thread() {
+        let cell = Cell::new().unwrap();
+        let ticker = Ticker::with_interval(cell.engine().clone(), Duration::from_secs(60));
+        // Allow the worker to park; shutdown must not wait for its tick interval.
+        std::thread::sleep(Duration::from_millis(10));
+        let start = Instant::now();
+        drop(ticker);
+        assert!(start.elapsed() < Duration::from_secs(5));
+    }
+
+    /// Run on both revisions with identical release builds; no timing assertions.
+    #[test]
+    #[ignore = "manual runtime timing probe"]
+    fn runtime_timing_probe() {
+        let start = Instant::now();
+        let cell = Cell::new().unwrap();
+        let component = guest(&cell, "");
+        eprintln!("engine_and_compile_us={}", start.elapsed().as_micros());
+        for timed in [false, true] {
+            let start = Instant::now();
+            for _ in 0..100 {
+                let policy = ExecutionPolicy {
+                    cancellation: timed.then(CancellationToken::default),
+                    ..Default::default()
+                };
+                cell.execute(&component, (), policy, "run", &[]).unwrap();
+            }
+            eprintln!(
+                "fresh_store_100 timed={timed} elapsed_us={}",
+                start.elapsed().as_micros()
+            );
+        }
+        let mut store = cell.managed_store((), ExecutionPolicy::default());
+        let instance = cell.instantiate_managed(&mut store, &component).unwrap();
+        let start = Instant::now();
+        for _ in 0..1000 {
+            store.call(&instance, "run", &[]).unwrap();
+        }
+        eprintln!("reused_store_1000_us={}", start.elapsed().as_micros());
+    }
+
     fn recovery(cell: &Cell) {
         let mut store = cell.managed_store((), ExecutionPolicy::default());
         let instance = cell

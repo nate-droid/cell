@@ -2,6 +2,7 @@
 name = "cell-capability-log"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Opt-in logging capability for the Cell WebAssembly runtime"
 
 [dependencies]

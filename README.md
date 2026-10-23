@@ -36,7 +36,7 @@ Expected output:
 hello from a Cell guest
 ```
 
-You'll need a recent stable Rust toolchain, Cargo, a native linker, and `make`. This checkout has been validated on Apple Silicon macOS with Rust/Cargo 1.97.1; a minimum supported Rust version and cross-platform support matrix have not yet been established. Cargo may download dependencies on first use.
+You'll need Rust 1.97 or newer, Cargo, a native linker, and `make`. This checkout uses Wasmtime 50 and has been validated on Apple Silicon macOS with Rust/Cargo 1.97.1; a cross-platform support matrix has not yet been established. Cargo may download dependencies on first use. See [the runtime modernization assessment](WASMTIME_50.md) for compatibility, lifecycle changes, validation and deferred features.
 
 The demo builds a Rust guest for `wasm32-unknown-unknown`, encodes it as a component using embedded WIT metadata, and runs it in a host that grants logging only. **No WASI interface is installed.** See [`hello-host`](examples/hello-host) for the full host code.
 
